@@ -16,7 +16,7 @@ The code supports the accompanying STS2R dataset paper and its Sim2Real experime
   Core modules for data augmentation, I/O, and supporting functions.
 
 - `scripts/`  
-  Main scripts for synthetic data generation, training, ablation studies, and benchmark evaluation.
+  Main scripts for synthetic data generation, preprocessing, training, ablation studies, and benchmark evaluation.
 
 - `src/`  
   Model architectures, loss functions, and training-related source code.
@@ -54,18 +54,7 @@ The **STS2R dataset** is released separately on Zenodo:
 > This GitHub repository does **not** contain the complete released dataset.  
 > For the full dataset release, please download the corresponding files from the Zenodo record above.
 
-After downloading the dataset from Zenodo, place it under `./data/` or update the dataset paths in the scripts accordingly.
-
-A typical local structure is:
-
-```text
-data/
-├── canonical_virtual_source_templates/
-├── synthetic_data/
-├── real_test_data/
-├── generation_assets/
-└── STS2R_metadata.csv
-```
+After downloading the dataset from Zenodo, please place the required files under the expected local directories described below, or update the paths in the scripts accordingly.
 
 ## Directory mapping for Zenodo data
 
@@ -76,11 +65,11 @@ Some scripts in this repository expect specific local directory names. After dow
 ### Required local paths
 
 - Zenodo `canonical_virtual_source_templates/`  
-  → place under:
+  → place under:  
   `assets/Base_Perfect_scan_60CAD/`
 
 - Zenodo real-data files required by the public code  
-  → place under:
+  → place under:  
   `assets/Real_Data/Real_ShoeA/`  
   `assets/Real_Data/Real_ShoeB/`  
   `assets/Real_Data/Real_ShoeC/`
@@ -92,6 +81,31 @@ If your local folder names differ, please update the paths in the scripts accord
 
 The GitHub repository intentionally does not include the complete data-dependent folders.  
 For full reproduction, users should download the corresponding files from the Zenodo release and restore them under the expected local directory structure.
+
+## Important note for users who download the GitHub ZIP archive
+
+If you use **Download ZIP** from GitHub instead of cloning the repository, the extracted contents may contain an additional outer directory level.
+
+Please make sure you run all scripts from the **actual project root**, i.e., the directory that directly contains:
+
+- `assets/`
+- `scripts/`
+- `src/`
+- `modules/`
+- `utils/`
+
+Some public scripts use **relative paths** such as `assets/Base_Perfect_scan_60CAD`.  
+If you run Python from an outer folder instead of the actual project root, you may encounter errors such as:
+
+```text
+Error: Input directory assets\Base_Perfect_scan_60CAD not found.
+```
+
+In such cases, please first change into the correct project root directory and then run the scripts again.
+
+This is a **working-directory issue**, rather than a code error or a problem with the dataset itself.
+
+**Quick check:** before running any script, confirm that your current directory directly contains `assets/` and `scripts/`.
 
 ## Usage
 
@@ -108,9 +122,45 @@ To run the full virtual-data generation workflow in one command:
 python scripts/00_Run_Data_Generation_Pipeline.py
 ```
 
-This script is intended for users who want to generate the required synthetic data in the default full pipeline.
+This script is the **recommended default workflow** for most users. It generates the four synthetic-data variants used in the ablation design in a unified pipeline. The final variant corresponds to the released **04_STS2R** synthetic branch.
 
-### 2. Step-by-step synthetic-data generation
+Please note that the full synthetic-data generation process may take a relatively long time (potentially hours, depending on hardware and environment), but it is the most convenient way to reproduce the complete generation workflow consistently.
+
+### 2. Optional fast path for benchmark reproduction
+
+For users who want to reproduce the released benchmark setting more quickly, the released synthetic data from Zenodo may be used directly instead of regenerating the final synthetic branch from scratch.
+
+In this case, place the Zenodo synthetic data under:
+
+```text
+outputs/Generated_ablation_data/04_STS2R/
+```
+
+Then run the following scripts separately:
+
+```bash
+python scripts/05_ROI_Filter_and_NPY_Converter.py
+python scripts/06_Generate_Stage1.5_Offline_Data.py
+python scripts/run_benchmark.py
+```
+
+When running `run_benchmark.py`, set the experiment mode to:
+
+```python
+MODE = 'full'
+```
+
+Available modes are:
+
+- `'full'`      - full-data training (Sim + Real)
+- `'real_only'` - real-data-only training
+- `'sim_only'`  - synthetic-data-only training
+- `'all'`       - runs all of the above sequentially
+
+Using the Zenodo synthetic data directly is acceptable if the goal is to reproduce the **final released benchmark setting** more efficiently.  
+However, if the goal is to reproduce the **entire synthetic-data generation process** and all ablation variants in a consistent way, we recommend running the full `00_Run_Data_Generation_Pipeline.py` pipeline.
+
+### 3. Step-by-step synthetic-data generation
 
 The following scripts correspond to progressively enriched synthetic data variants used in the paper. They are useful for debugging, intermediate inspection, and ablation-oriented regeneration.
 
@@ -146,7 +196,27 @@ python scripts/04_Generate_STS2R_Sim.py
 
 Generates the final released synthetic branch, corresponding to **Base + Geo + Phys + App**.
 
-### 3. Run ablation experiments
+### 4. Preprocessing and offline-data generation
+
+The repository also provides the following intermediate scripts for preprocessing and benchmark preparation:
+
+#### ROI filtering and NPY conversion
+
+```bash
+python scripts/05_ROI_Filter_and_NPY_Converter.py
+```
+
+This script performs ROI filtering and converts the generated data into the `.npy` format required by later steps.
+
+#### Stage 1.5 offline-data generation
+
+```bash
+python scripts/06_Generate_Stage1.5_Offline_Data.py
+```
+
+This script generates the Stage 1.5 offline data used by the subsequent benchmark pipeline.
+
+### 5. Run ablation experiments
 
 To reproduce the ablation experiments reported in the paper:
 
@@ -156,7 +226,7 @@ python scripts/run_ablation.py
 
 This script is used for evaluating progressive synthetic data-generation variants and their impact on downstream real-world transfer performance.
 
-### 4. Run benchmark experiments
+### 6. Run benchmark experiments
 
 To reproduce the benchmark experiments reported in the paper:
 
@@ -170,10 +240,14 @@ This script is used for the complementary Stage 2 training settings described in
 - Synthetic-only
 - Synthetic + limited real
 
+Before running this script, please check the `MODE` setting in the file according to your intended benchmark configuration.
+
 ## Reproducibility Notes
 
 - The released dataset is stored separately on Zenodo.
 - Update dataset paths before running the scripts if your local directory structure differs from the default assumptions.
+- The one-click pipeline (`00_Run_Data_Generation_Pipeline.py`) is the recommended default workflow for complete reproduction.
+- For faster reproduction of the final released setting, the Zenodo synthetic data may be placed directly under `outputs/Generated_ablation_data/04_STS2R/`, followed by `05_ROI_Filter_and_NPY_Converter.py`, `06_Generate_Stage1.5_Offline_Data.py`, and `run_benchmark.py`.
 - Training outputs, logs, checkpoints, and generated experiment results are not included in this public repository.
 - Running the generation and experiment scripts will automatically create the required output files and folders locally.
 - Some scripts are intended for paper reproduction and may assume specific directory conventions or checkpoint locations.
@@ -183,11 +257,17 @@ This script is used for the complementary Stage 2 training settings described in
 For most users, the recommended order is:
 
 1. Download the dataset from Zenodo.
-2. Configure dataset paths if needed.
-3. Run:
+2. Place the required Zenodo files under the expected local directories described above, or update the paths in the scripts if needed.
+3. Confirm that you are running from the actual project root directory.
+4. Run:
    - `00_Run_Data_Generation_Pipeline.py` for one-click generation, or
    - `01_Generate_V_Base.py` to `04_Generate_STS2R_Sim.py` step by step for debugging and inspection.
-4. Run:
+5. If using the Zenodo synthetic shortcut for the final released setting, place the released synthetic data under:
+   - `outputs/Generated_ablation_data/04_STS2R/`
+6. Run:
+   - `05_ROI_Filter_and_NPY_Converter.py`
+   - `06_Generate_Stage1.5_Offline_Data.py`
+7. Run:
    - `run_ablation.py` for ablation experiments
    - `run_benchmark.py` for benchmark experiments
 
