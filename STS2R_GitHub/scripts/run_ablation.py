@@ -83,7 +83,7 @@ class Config:
     NUM_WORKERS = 4 
     
     # Stage 2 训练参数 (固定 14 维特征协议)
-    STAGE2_MODEL_TYPES = ['pointmlp'] 
+    STAGE2_MODEL_TYPES = ['pointnet2', 'pointmlp', 'dgcnn'] 
     STAGE2_EPOCHS = 100
     STAGE2_BATCH_SIZE = 8
     STAGE2_PATIENCE = 10 
@@ -582,12 +582,13 @@ def main():
                 if config.MODE != 'all': return
                 else: continue
 
-            train_loader = DataLoader(train_ds, batch_size=config.STAGE2_BATCH_SIZE, shuffle=True, num_workers=config.NUM_WORKERS, pin_memory=True, persistent_workers=True)
-            val_loader = DataLoader(val_ds, batch_size=config.STAGE2_BATCH_SIZE, shuffle=False, num_workers=config.NUM_WORKERS, pin_memory=True, persistent_workers=True)
-            test_loader = DataLoader(test_ds, batch_size=config.STAGE2_BATCH_SIZE, shuffle=False, num_workers=config.NUM_WORKERS, pin_memory=True, persistent_workers=True)
-            
             # 依次训练列表中的所有模型 (PointMLP / DGCNN / PointNet2)
             for model_name in config.STAGE2_MODEL_TYPES:
+                # [环境隔离] 每次训练前重置种子并重建 DataLoader，确保独立运行的一致性
+                set_seed(config.SEED)
+                train_loader = DataLoader(train_ds, batch_size=config.STAGE2_BATCH_SIZE, shuffle=True, num_workers=config.NUM_WORKERS, pin_memory=True, persistent_workers=True)
+                val_loader = DataLoader(val_ds, batch_size=config.STAGE2_BATCH_SIZE, shuffle=False, num_workers=config.NUM_WORKERS, pin_memory=True, persistent_workers=True)
+                test_loader = DataLoader(test_ds, batch_size=config.STAGE2_BATCH_SIZE, shuffle=False, num_workers=config.NUM_WORKERS, pin_memory=True, persistent_workers=True)
                 print(f"\n" + "-"*60)
                 print(f"[Stage2] Dataset Variant: {current_mode} | Backbone: {model_name} | Aug Mode: {config.STAGE2_AUG_MODE}")
                 print("-"*60)
